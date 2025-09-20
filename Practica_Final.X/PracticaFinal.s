@@ -1,144 +1,180 @@
  ;===========================================
-; Semáforo 4 vías
+; SemÃ¡foro 4 vÃ­as
 ; Josias Arturo Puga C.
 ;===========================================
+PROCESSOR   16F887
+        #include    <xc.inc>
+        CONFIG  FOSC   = INTRC_NOCLKOUT
+        CONFIG  WDTE   = OFF
+        CONFIG  PWRTE  = ON
+        CONFIG  MCLRE  = ON
+        CONFIG  CP     = OFF
+        CONFIG  CPD    = OFF
+        CONFIG  BOREN  = ON
+        CONFIG  BOR4V  = BOR40V
+        CONFIG  FCMEN  = OFF
+        CONFIG  IESO   = OFF
+        CONFIG  LVP    = OFF
+        CONFIG  WRT    = OFF
+        CONFIG  DEBUG  = OFF
+        PSECT   resetVec, class=CODE, delta=2
+        ORG     0x0000
+        GOTO    INIT
 
-    PROCESSOR 16F887
-    #include <xc.inc>
+        PSECT   intVec, class=CODE, delta=2
+        ORG     0x0004
+        RETFIE
 
-;Configuracion de bits
-    CONFIG FOSC = INTRC_NOCLKOUT
-    CONFIG WDTE = OFF
-    CONFIG PWRTE = ON
-    CONFIG MCLRE = ON
-    CONFIG CP = OFF
-    CONFIG CPD = OFF
-    CONFIG BOREN = ON
-    CONFIG IESO = OFF
-    CONFIG FCMEN = OFF
-    CONFIG LVP = OFF
-    CONFIG DEBUG = OFF
+        PSECT   udata_bank0
+R0:     DS 1
+R1:     DS 1
+R2:     DS 1
+R3:     DS 1
 
-;Variables
-    PSECT udata_bank0
-COUNT1: DS 1
-COUNT2: DS 1
-COUNT3: DS 1
+        PSECT   code, class=CODE, delta=2
 
-;Reset Vector
-    PSECT resetVec, class=CODE, delta=2
-    ORG 0x00
-    GOTO MAIN
+INIT:
+        BANKSEL OSCCON
+        MOVLW   0b01110000
+        MOVWF   OSCCON
 
-;Retardos
-    PSECT code
+        BANKSEL ANSEL
+        CLRF    ANSEL
+        CLRF    ANSELH
 
-DELAY1S:                ; Retardo 1 segundo a 4MHz
-    MOVLW 250
-    MOVWF COUNT1
-D1: MOVLW 250
-    MOVWF COUNT2
-D2: MOVLW 250
-    MOVWF COUNT3
-D3: DECFSZ COUNT3, f
-    GOTO D3
-    DECFSZ COUNT2, f
-    GOTO D2
-    DECFSZ COUNT1, f
-    GOTO D1
-    RETURN
+        BANKSEL TRISB
+        CLRF    TRISB
+        BANKSEL PORTB
+        CLRF    PORTB
 
-DELAY10S:               ; Retardo de 10 segundos
-    MOVLW 10
-    MOVWF COUNT1
-DL10: CALL DELAY1S
-    DECFSZ COUNT1, f
-    GOTO DL10
-    RETURN
+        BANKSEL TRISC
+        CLRF    TRISC
+        BANKSEL PORTC
+        CLRF    PORTC
 
-DELAY3S:                ; Retardo de 3 segundos
-    MOVLW 3
-    MOVWF COUNT1
-DL3: CALL DELAY1S
-    DECFSZ COUNT1, f
-    GOTO DL3
-    RETURN
+loop:
+        
+        BCF PORTB,2
+        BCF PORTB,5
+        BSF PORTC,0
+        BSF PORTC,3
 
-;--------------------------
-; PROGRAMA PRINCIPAL
-;--------------------------
-MAIN:
-    ; Configuración de puertos como salida
-    banksel TRISB
-    CLRF TRISB
+        BSF PORTB,0
+        BSF PORTB,3
+        CALL delay_4s
 
-    banksel TRISC
-    CLRF TRISC
+        MOVLW 3
+        MOVWF R2
+blink_ns:
+        BCF PORTB,0
+        BCF PORTB,3
+        CALL delay_500ms
+        BSF PORTB,0
+        BSF PORTB,3
+        CALL delay_500ms
+        DECFSZ R2,F
+        GOTO blink_ns
 
-    ; Apagar LEDs al inicio
-    banksel PORTB
-    CLRF PORTB
+        BCF PORTB,0
+        BCF PORTB,3
+        BSF PORTB,1
+        BSF PORTB,4
+        CALL delay_3s
+        BCF PORTB,1
+        BCF PORTB,4
 
-    banksel PORTC
-    CLRF PORTC
+        BSF PORTB,2
+        BSF PORTB,5
+        BCF PORTC,0
+        BCF PORTC,3
+        BSF PORTB,6
+        BSF PORTC,1
+        CALL delay_4s
 
-CICLO:
-    ; Paso 1: Norte-Sur Verde, Este-Oeste Rojo
-    banksel PORTB
-    BSF PORTB,2      ; Verde Norte
-    BSF PORTB,5      ; Verde Sur
-    banksel PORTC
-    BSF PORTC,0      ; Rojo Este
-    BSF PORTC,3      ; Rojo Oeste
-    CALL DELAY10S
-    banksel PORTB
-    CLRF PORTB
-    banksel PORTC
-    CLRF PORTC
+        MOVLW 3
+        MOVWF R2
+blink_eo:
+        BCF PORTB,6
+        BCF PORTC,1
+        CALL delay_500ms
+        BSF PORTB,6
+        BSF PORTC,1
+        CALL delay_500ms
+        DECFSZ R2,F
+        GOTO blink_eo
 
-    ; Paso 2: Norte-Sur Amarillo parpadeante (3s)
-    MOVLW 3
-    MOVWF COUNT1
-P2:
-    banksel PORTB
-    BSF PORTB,1      ; Amarillo Norte
-    BSF PORTB,4      ; Amarillo Sur
-    CALL DELAY1S
-    CLRF PORTB
-    CLRF PORTC
-    CALL DELAY1S
-    DECFSZ COUNT1,f
-    GOTO P2
+        BCF PORTB,6
+        BCF PORTC,1
+        BSF PORTB,7
+        BSF PORTC,2
+        CALL delay_3s
+        BCF PORTB,7
+        BCF PORTC,2
 
-    ; Paso 3: Este-Oeste Verde
-    banksel PORTC
-    BSF PORTC,2      ; Verde Este
-    BSF PORTC,5      ; Verde Oeste
-    banksel PORTB
-    BSF PORTB,0      ; Rojo Norte
-    BSF PORTB,3      ; Rojo Sur
-    CALL DELAY10S
-    banksel PORTB
-    CLRF PORTB
-    banksel PORTC
-    CLRF PORTC
+        BSF PORTC,0
+        BSF PORTC,3
+        BCF PORTB,2
+        BCF PORTB,5
+        BSF PORTB,0
+        BSF PORTB,3
+        CALL delay_4s
 
-    ; Paso 4: Este-Oeste Amarillo parpadeante (3s)
-    MOVLW 3
-    MOVWF COUNT1
-P4:
-    banksel PORTC
-    BSF PORTC,1      ; Amarillo Este
-    BSF PORTC,4      ; Amarillo Oeste
-    CALL DELAY1S
-    CLRF PORTB
-    CLRF PORTC
-    CALL DELAY1S
-    DECFSZ COUNT1,f
-    GOTO P4
+        MOVLW 3
+        MOVWF R2
+blink_ns2:
+        BCF PORTB,0
+        BCF PORTB,3
+        CALL delay_500ms
+        BSF PORTB,0
+        BSF PORTB,3
+        CALL delay_500ms
+        DECFSZ R2,F
+        GOTO blink_ns2
 
-    GOTO CICLO
+        BCF PORTB,0
+        BCF PORTB,3
+        BSF PORTB,1
+        BSF PORTB,4
+        CALL delay_3s
+        BCF PORTB,1
+        BCF PORTB,4
 
-    END
+        GOTO loop
 
+delay_500ms:
+        MOVLW 2
+        MOVWF R3
+d500_outer:
+        MOVLW 250
+        MOVWF R0
+d500_mid:
+        MOVLW 250
+        MOVWF R1
+d500_inner:
+        DECFSZ R1,F
+        GOTO d500_inner
+        DECFSZ R0,F
+        GOTO d500_mid
+        DECFSZ R3,F
+        GOTO d500_outer
+        RETURN
 
+delay_4s:
+        MOVLW 8
+        MOVWF R2
+d4_loop:
+        CALL delay_500ms
+        DECFSZ R2,F
+        GOTO d4_loop
+        RETURN
+
+delay_3s:
+        MOVLW 6
+        MOVWF R2
+d3_loop:
+        CALL delay_500ms
+        DECFSZ R2,F
+        GOTO d3_loop
+        RETURN
+
+END
